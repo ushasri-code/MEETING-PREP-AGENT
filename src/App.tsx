@@ -91,10 +91,46 @@ function App() {
     window.setTimeout(() => setToast(''), 2600);
   };
 
-  const openBrief = (id: string) => {
+  const openBrief = async (id: string) => {
     setSelectedId(id);
     setSaved(false);
     setView('brief');
+
+    const contact = contacts.find((c) => c.id === id);
+
+    if (!contact) return;
+
+    try {
+      const response = await fetch('http://localhost:8000/api/meeting-prep', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contact_name: contact.name,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate meeting brief');
+      }
+
+      const data = await response.json();
+
+      setContacts((current) =>
+        current.map((c) =>
+          c.id === id
+            ? {
+                ...c,
+                notes: data.brief || c.notes,
+              }
+            : c
+        )
+      );
+    } catch (error) {
+      console.error('Meeting prep API error:', error);
+      showToast('Could not load meeting brief');
+    }
   };
 
   const openMemory = (id = selectedId) => {
@@ -180,7 +216,7 @@ function App() {
         {view === 'memory' ? (
           <MemoryForm contact={selected} onBack={() => setView('brief')} onSave={saveMemory} saved={saved} />
         ) : view === 'brief' ? (
-          <BriefView contact={selected} onBack={() => { setView('dashboard'); setSection('Home'); }} onEdit={() => openMemory()} onToast={showToast} />
+          <BriefView contact={selected} onBack={() => { setView('dashboard'); setSection('Home'); }} onEdit={() => openMemory()} onToast={showToast} onPrepare={openBrief} />
         ) : (
           <Dashboard section={section} contacts={filteredContacts} allContacts={contacts} query={query} setQuery={setQuery} openBrief={openBrief} openMemory={openMemory} onToast={showToast} />
         )}
@@ -269,11 +305,11 @@ function MemoryForm({ contact, onBack, onSave, saved }: { contact: Contact; onBa
   </div>;
 }
 
-function BriefView({ contact, onBack, onEdit, onToast }: { contact: Contact; onBack: () => void; onEdit: () => void; onToast: (message: string) => void }) {
+function BriefView({ contact, onBack, onEdit, onToast, onPrepare }: { contact: Contact; onBack: () => void; onEdit: () => void; onToast: (message: string) => void; onPrepare: (id: string) => void }) {
   return <div className="page-content brief-page">
     <button className="back-link" onClick={onBack}><ArrowLeft size={15} /> All meetings</button>
     <div className="brief-title-row"><div><div className="eyebrow"><span className="eyebrow-dot" /> YOUR NEXT CONVERSATION</div><h1>Meeting brief<span className="heading-period">.</span></h1><p>Everything worth remembering, in one place.</p></div><button className="outline-button" onClick={onEdit}><FilePlus2 size={16} /> Add a memory</button></div>
-    <section className="brief-hero"><div className="brief-contact"><span className={`avatar avatar-large avatar-${contact.color}`}>{contact.initials}</span><div><div className="brief-contact-name"><h2>{contact.name}</h2><button aria-label="More contact options" onClick={() => onToast('Contact options')}><MoreHorizontal size={19} /></button></div><span>{contact.role} <i>at</i> {contact.company}</span><div className="brief-meta"><span><CalendarDays size={14} /> {contact.day}, {contact.time}</span><span><span className="topic-mark" /> {contact.topic}</span></div></div></div><div className="brief-hero-actions"><span className="ready-label"><i /> READY WHEN YOU ARE</span><button className="prepare-button" onClick={() => onToast('Your brief is ready to share')}><Sparkles size={14} /> Prepare me <ArrowRight size={14} /></button></div></section>
+    <section className="brief-hero"><div className="brief-contact"><span className={`avatar avatar-large avatar-${contact.color}`}>{contact.initials}</span><div><div className="brief-contact-name"><h2>{contact.name}</h2><button aria-label="More contact options" onClick={() => onToast('Contact options')}><MoreHorizontal size={19} /></button></div><span>{contact.role} <i>at</i> {contact.company}</span><div className="brief-meta"><span><CalendarDays size={14} /> {contact.day}, {contact.time}</span><span><span className="topic-mark" /> {contact.topic}</span></div></div></div><div className="brief-hero-actions"><span className="ready-label"><i /> READY WHEN YOU ARE</span><button className="prepare-button" onClick={() => onPrepare(contact.id)}><Sparkles size={14} /> Prepare me <ArrowRight size={14} /></button></div></section>
     <div className="brief-grid"><section className="brief-memory-panel"><div className="brief-panel-heading"><div><span className="panel-kicker">THE BACKSTORY</span><h3>What to remember</h3></div><button className="edit-memory" onClick={onEdit}>Edit memory <ArrowRight size={14} /></button></div>
       <div className="memory-item"><span className="memory-icon icon-notes"><BookOpen size={15} /></span><div><div className="memory-item-title"><strong>Past discussions</strong><span>Sep 18, 2026</span></div><p>{contact.notes}</p></div></div>
       <div className="memory-item"><span className="memory-icon icon-promise"><CheckCheck size={15} /></span><div><div className="memory-item-title"><strong>Pending commitments</strong><span className="pending-pill">Needs attention</span></div><p>{contact.promises}<br />{contact.followups}</p></div></div>
