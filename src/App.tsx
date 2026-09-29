@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import {
   ArrowDownRight, ArrowLeft, ArrowRight, Bell, BookOpen, CalendarDays, Check,
-  CheckCheck, ChevronDown, ChevronRight, CircleHelp, Clock3, Command, Compass,
+  CheckCheck, ChevronDown, ChevronRight, CircleHelp, Command, Compass,
   FilePlus2, LayoutDashboard, ListFilter, MoreHorizontal, Plus, Search, Settings,
   Sparkles, Users, X,
 } from 'lucide-react';
@@ -80,6 +82,7 @@ function App() {
   const [view, setView] = useState<View>('dashboard');
   const [query, setQuery] = useState('');
   const [saved, setSaved] = useState(false);
+  const [generatedBrief, setGeneratedBrief] = useState('');
   const [toast, setToast] = useState('');
   const selected = contacts.find((contact) => contact.id === selectedId) ?? contacts[0];
   const filteredContacts = useMemo(() => contacts.filter((contact) =>
@@ -101,7 +104,7 @@ function App() {
     if (!contact) return;
 
     try {
-      const response = await fetch('http://localhost:8000/api/meeting-prep', {
+      const response = await fetch('/api/meeting-prep', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -117,16 +120,9 @@ function App() {
 
       const data = await response.json();
 
-      setContacts((current) =>
-        current.map((c) =>
-          c.id === id
-            ? {
-                ...c,
-                notes: data.brief || c.notes,
-              }
-            : c
-        )
-      );
+      setGeneratedBrief(data.brief || '');
+
+      showToast('Meeting brief generated successfully');
     } catch (error) {
       console.error('Meeting prep API error:', error);
       showToast('Could not load meeting brief');
@@ -216,7 +212,7 @@ function App() {
         {view === 'memory' ? (
           <MemoryForm contact={selected} onBack={() => setView('brief')} onSave={saveMemory} saved={saved} />
         ) : view === 'brief' ? (
-          <BriefView contact={selected} onBack={() => { setView('dashboard'); setSection('Home'); }} onEdit={() => openMemory()} onToast={showToast} onPrepare={openBrief} />
+          <BriefView contact={selected} onBack={() => { setView('dashboard'); setSection('Home'); }} onEdit={() => openMemory()} onToast={showToast} onPrepare={openBrief} generatedBrief={generatedBrief} />
         ) : (
           <Dashboard section={section} contacts={filteredContacts} allContacts={contacts} query={query} setQuery={setQuery} openBrief={openBrief} openMemory={openMemory} onToast={showToast} />
         )}
@@ -305,7 +301,7 @@ function MemoryForm({ contact, onBack, onSave, saved }: { contact: Contact; onBa
   </div>;
 }
 
-function BriefView({ contact, onBack, onEdit, onToast, onPrepare }: { contact: Contact; onBack: () => void; onEdit: () => void; onToast: (message: string) => void; onPrepare: (id: string) => void }) {
+function BriefView({ contact, onBack, onEdit, onToast, onPrepare, generatedBrief }: { contact: Contact; onBack: () => void; onEdit: () => void; onToast: (message: string) => void; onPrepare: (id: string) => void; generatedBrief: string }) {
   return <div className="page-content brief-page">
     <button className="back-link" onClick={onBack}><ArrowLeft size={15} /> All meetings</button>
     <div className="brief-title-row"><div><div className="eyebrow"><span className="eyebrow-dot" /> YOUR NEXT CONVERSATION</div><h1>Meeting brief<span className="heading-period">.</span></h1><p>Everything worth remembering, in one place.</p></div><button className="outline-button" onClick={onEdit}><FilePlus2 size={16} /> Add a memory</button></div>
@@ -316,7 +312,21 @@ function BriefView({ contact, onBack, onEdit, onToast, onPrepare }: { contact: C
       <div className="memory-item"><span className="memory-icon icon-concern"><Compass size={15} /></span><div><div className="memory-item-title"><strong>Concerns</strong></div><p>{contact.concerns}</p></div></div>
       <div className="memory-item"><span className="memory-icon icon-style"><Sparkles size={15} /></span><div><div className="memory-item-title"><strong>Meeting preferences</strong></div><p>{contact.preferences}</p></div></div>
     </section><aside className="talking-panel"><div className="talking-head"><span className="talking-spark"><Sparkles size={15} /></span><span className="panel-kicker">A THOUGHTFUL START</span><button onClick={() => onToast('Talking points refreshed')}><ArrowRight size={15} /></button></div><h3>Talking points</h3><p className="talking-subtitle">A few ideas to help you get started.</p><ol className="talking-list"><li><span>01</span><p>Close the loop on your last conversation’s commitments.</p></li><li><span>02</span><p>Ask what has changed since you last spoke about <em>{contact.topic.toLowerCase()}</em>.</p></li><li><span>03</span><p>Make space for their concerns before diving into your update.</p></li></ol><div className="talking-note"><span>✳</span><p>Start with a question, not a status update.</p></div><div className="ai-disclaimer"><Sparkles size={12} /> Suggested from your meeting memory</div></aside></div>
-    <div className="brief-bottom"><span><Clock3 size={14} /> Last met {contact.last}</span><button onClick={() => onToast('Brief marked as reviewed')}><Check size={14} /> Mark as reviewed</button></div>
+    {generatedBrief && (
+      <section className="generated-brief">
+        <div className="generated-brief-header">
+          <Sparkles size={16} />
+          <strong>AI Meeting Preparation</strong>
+        </div>
+        <div className="generated-brief-content">
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            {generatedBrief.replace(/<br\s*\/?\s*>/gi, '\n')}
+          </ReactMarkdown>
+        </div>
+      </section>
+    )}
+
+    <div className="brief-bottom"><span>Last met {contact.last}</span><button onClick={() => onToast('Brief marked as reviewed')}><Check size={14} /> Mark as reviewed</button></div>
   </div>;
 }
 
