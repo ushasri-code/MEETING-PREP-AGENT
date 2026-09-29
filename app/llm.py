@@ -44,7 +44,7 @@ def generate_meeting_brief(contact_name, memories):
             }
         ],
         temperature=0.3,
-        max_completion_tokens=1200,
+        max_completion_tokens=2000,
         include_reasoning=False
     )
 
