@@ -25,32 +25,21 @@ def store_memory(content):
 
 
 def recall_memories(query):
+    result = client.recall(
+    bank_id=BANK_ID,
+    query=query
+)
     """
     Retrieve relevant memories from Hindsight.
     """
-    result = client.recall(
-        bank_id=BANK_ID,
-        query=query
-    )
+    
+    
 
     return [memory.text for memory in result.results]
 
 
 if __name__ == "__main__":
-    store_memory(
-        "Meeting 1 with Ravi: Ravi wants dashboard API integration. "
-        "Ravi prefers email communication. "
-        "We promised to send the API documentation."
-    )
 
-    memories = recall_memories("What do we remember about Ravi?")
-
-    print("\n===== RECALLED MEMORIES =====")
-
-    for memory in memories:
-        print("-", memory)
-    
-if __name__ == "__main__":
     store_memory(
         "Meeting 1 with Ravi: Ravi wants dashboard API integration. "
         "Ravi prefers email communication. "
